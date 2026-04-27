@@ -1,0 +1,13 @@
+# Ignore dependencies
+**/node_modules/
+
+# Ignore environment variables (Your API Key!)
+.env
+
+# Ignore build folders
+**/dist/
+**/build/
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
