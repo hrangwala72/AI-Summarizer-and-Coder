@@ -1,96 +1,161 @@
 import { useState } from 'react'
 import axios from 'axios'
+import { Sparkles, Code2, FileText, Upload, CheckCircle2, AlertCircle, Cpu } from 'lucide-react'
 import './App.css'
 
 function App() {
-  // States for Summarizer
   const [summaryText, setSummaryText] = useState('');
   const [summaryResult, setSummaryResult] = useState('');
-  
-  // States for Code Generator
   const [codePrompt, setCodePrompt] = useState('');
   const [language, setLanguage] = useState('Python');
   const [codeResult, setCodeResult] = useState('');
-  
-  const [loading, setLoading] = useState(false);
+  const [activeModel, setActiveModel] = useState('Gemini 2.5');
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [file, setFile] = useState(null);
 
+  // FIXED: Added missing closing brace below
+  const onFileChange = (e) => {
+    setFile(e.target.files[0]);
+  }; 
+
+  // Summarizer Logic
   const handleSummarize = async () => {
-    setLoading(true);
+    setSummaryLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/summarize', { text: summaryText });
-      setSummaryResult(response.data.summary);
-    } catch (error) {
-      alert("Backend error! Is the Node.js server running?");
-    }
-    setLoading(false);
-  };
+      let response;
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        response = await axios.post('http://localhost:5000/api/summarize-pdf', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        response = await axios.post('http://localhost:5000/api/summarize', { text: summaryText });
+      }
 
+      setSummaryResult(response.data.summary);
+      setActiveModel(response.data.source);
+      setFile(null); 
+    } catch (error) {
+        console.error(error);
+    } 
+    finally {
+      setSummaryLoading(false);
+    }
+};
+
+  // Code Gen Logic
   const handleGenerateCode = async () => {
-    setLoading(true);
+    setCodeLoading(true);
     try {
       const response = await axios.post('http://localhost:5000/api/generate-code', { 
         prompt: codePrompt, 
         language: language 
       });
       setCodeResult(response.data.code);
-    } catch (error) {
-      alert("Backend error! Is the Node.js server running?");
+      setActiveModel(response.data.source || 'Gemini 2.5');
+    } 
+    catch (error) {
+      console.error(error);
     }
-    setLoading(false);
-  };
+    setCodeLoading(false);
+};
 
   return (
-    <div className="container">
-      <h1>🚀 AI Multi-Tool</h1>
-      
-      {/* SECTION 1: SUMMARIZER */}
-      <div className="card">
-        <h3>📄 Text Summarizer</h3>
-        <textarea 
-          placeholder="Paste long text or articles here..." 
-          value={summaryText} 
-          onChange={(e) => setSummaryText(e.target.value)}
-        />
-        <button onClick={handleSummarize} disabled={loading}>
-          {loading ? 'Processing...' : 'Summarize'}
-        </button>
-        {summaryResult && (
-          <div className="result-box">
-            <strong>Summary:</strong>
-            <p>{summaryResult}</p>
-          </div>
-        )}
-      </div>
-
-      {/* SECTION 2: CODE GENERATOR */}
-      <div className="card">
-        <h3>💻 AI Code Generator</h3>
-        <div className="controls">
-          <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-            <option value="Python">Python</option>
-            <option value="JavaScript">JavaScript</option>
-            <option value="C++">C++</option>
-            <option value="Java">Java</option>
-            <option value="SQL">SQL</option>
-          </select>
+    <div className="app-layout">
+      <header className="main-header">
+        <div className="logo-section">
+          <Sparkles className="sparkle-icon" />
+          <h1>Insight Engine <span className="version-tag">v2.0</span></h1>
         </div>
-        <textarea 
-          placeholder="Describe the code you need (e.g., 'A function to sort a list')..." 
-          value={codePrompt} 
-          onChange={(e) => setCodePrompt(e.target.value)}
-        />
-        <button className="code-btn" onClick={handleGenerateCode} disabled={loading}>
-          {loading ? 'Generating...' : 'Generate Code'}
-        </button>
-        {codeResult && (
-          <div className="result-box code-output">
-            <strong>Generated {language} Code:</strong>
-            <pre><code>{codeResult}</code></pre>
+        <div className="status-bar">
+          <Cpu size={16} />
+          <span>Active Engine: <strong>{activeModel}</strong></span>
+        </div>
+      </header>
+
+      <main className="content-grid">
+        <section className="glass-card">
+          <div className="card-header">
+            <FileText className="header-icon" />
+            <h2>Document Summarizer</h2>
           </div>
-        )}
-      </div>
+          
+          <div className="input-group">
+            <textarea 
+              placeholder="Paste text here..." 
+              value={summaryText} 
+              disabled={file !== null}
+              onChange={(e) => setSummaryText(e.target.value)}
+            />
+  
+            {file && (
+              <div className="file-indicator fade-in">
+                <CheckCircle2 size={16} color="#10b981" />
+                <span>Ready to summarize: <strong>{file.name}</strong></span>
+                <button className="clear-file" onClick={() => setFile(null)}>✕</button>
+              </div>
+            )}
+
+            <div className="action-bar">
+              <label className="upload-btn">
+                <Upload size={18} />
+                <span>{file ? 'Change PDF' : 'Upload PDF'}</span>
+                <input 
+                  type="file" 
+                  style={{display: 'none'}} 
+                  accept=".pdf" 
+                  onChange={onFileChange} 
+                />
+              </label>
+              
+              <button className="primary-btn" onClick={handleSummarize} disabled={summaryLoading}>
+                {summaryLoading ? 'Processing...' : 'Generate Summary'}
+                </button>
+            </div>
+          </div>
+          {summaryResult && (
+            <div classNamez="result-area fade-in">
+              <div className="result-label"><CheckCircle2 size={14} /> Result</div>
+              <p>{summaryResult}</p>
+            </div>
+          )}
+        </section>
+
+        <section className="glass-card">
+          <div className="card-header">
+            <Code2 className="header-icon" />
+            <h2>Code Generator</h2>
+          </div>
+          
+          <div className="input-group">
+            <select className="lang-select" value={language} onChange={(e) => setLanguage(e.target.value)}>
+              <option value="Python">Python</option>
+              <option value="JavaScript">JavaScript</option>
+              <option value="SQL">SQL</option>
+              <option value="Java">Java</option>
+            </select>
+            <textarea 
+              placeholder="Describe logic (e.g. A function to encrypt data)..." 
+              value={codePrompt} 
+              onChange={(e) => setCodePrompt(e.target.value)}
+            />
+            <button className="secondary-btn" onClick={handleGenerateCode} disabled={codeLoading}>
+              {codeLoading ? 'Synthesizing...' : 'Generate Snippet'}
+              </button>
+          </div>
+
+          {codeResult && (
+            <div className="result-area code-result fade-in">
+              <div className="result-label"><Code2 size={14} /> Generated {language}</div>
+              <pre><code>{codeResult}</code></pre>
+            </div>
+          )}
+        </section>
+      </main>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
